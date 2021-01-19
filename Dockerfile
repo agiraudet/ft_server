@@ -47,8 +47,8 @@ tar zxf latest.tar.gz && \
 rm latest.tar.gz && \
 mv wordpress /var/www/localhost/wordpress && \
 mv wp-config.php /var/www/localhost/wordpress && \
-find /var/www/wordpress/ -type d -exec chmod 750 {} \; && \
-find /var/www/wordpress/ -type f -exec chmod 640 {} \;
+find /var/www/localhost/wordpress/ -type d -exec chmod 750 {} \; && \
+find /var/www/localhost/wordpress/ -type f -exec chmod 640 {} \;
 
 #generate ssl
 RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
