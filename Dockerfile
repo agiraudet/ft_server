@@ -2,37 +2,62 @@ FROM debian:buster
 
 LABEL maintainer="agiraude <agiraude@student.42.fr>"
 
-RUN apt update && apt install -y \
-mariadb-server \
-php-fpm \
-php-mysql \
-wget \
-nginx &&\
-rm -rf /var/lib/apt/lists/*
-
-RUN ln -sf /dev/stdout /var/log/nginx/access.log
-RUN ln -sf /dev/stderr /var/log/nginx/error.log
-
 COPY srcs /root/
 
 WORKDIR /root/
 
-RUN bash database_setup.sh && \
-mv nginx.conf /etc/nginx/sites-available/localhost && \
-rm /etc/nginx/sites-enabled/default && \
-ln -s /etc/nginx/sites-available/localhost /etc/nginx/sites-enabled/localhost && \
-mv index.html /var/www/html
+RUN apt-get update && apt-get install -y \
+nginx \
+mariadb-server \
+php-fpm \
+php-mysql \
+php-mbstring \
+php-zip \
+php-gd \
+php-curl \
+php-xml \
+php-xmlrpc \
+php-soap \
+php-intl \
+wget
 
-RUN mkdir -p /run/php-fpm && \
-mkdir -p /var/www/html/phpmyadmin && \
-#wget https://www.phpmyadmin.net/downloads/phpMyAdmin-5.0.4-english.tar.gz && \
-wget https://files.phpmyadmin.net/phpMyAdmin/5.0.4/phpMyAdmin-5.0.4-english.tar.gz && \
+#setup database (similar to mysql_secure_installation)
+RUN service mysql start && \
+mysql -sfu root < "db_install.sql"
+
+#nginx setup
+RUN mkdir -p /var/www/localhost && \
+chown -R www-data:www-data /var/www/localhost && \
+mv nginx.conf /etc/nginx/sites-available/localhost && \
+ln -s /etc/nginx/sites-available/localhost /etc/nginx/sites-enabled/ && \
+rm -f /etc/nginx/sites-enabled/default
+
+#phpmyadmin setup
+RUN wget https://files.phpmyadmin.net/phpMyAdmin/5.0.4/phpMyAdmin-5.0.4-english.tar.gz && \
 tar zxf phpMyAdmin-5.0.4-english.tar.gz && \
-ls && \
 rm phpMyAdmin-5.0.4-english.tar.gz && \
-mv phpMyAdmin-5.0.4-english /var/www/html/phpmyadmin && \
-chown -R www-data:www-data /var/www/html
+mv phpMyAdmin-5.0.4-english /usr/share/phpmyadmin && \
+ln -s /usr/share/phpmyadmin /var/www/localhost/phpmyadmin && \
+chmod 755 -R /usr/share/phpmyadmin && \
+chown www-data:www-data -R /usr/share/phpmyadmin
+
+#wordpress setup
+RUN wget https://wordpress.org/latest.tar.gz && \
+tar zxf latest.tar.gz && \
+rm latest.tar.gz && \
+mv wordpress /var/www/localhost/wordpress && \
+mv wp-config.php /var/www/localhost/wordpress && \
+find /var/www/wordpress/ -type d -exec chmod 750 {} \; && \
+find /var/www/wordpress/ -type f -exec chmod 640 {} \;
+
+#generate ssl
+RUN openssl req -x509 -nodes -days 3650 -newkey rsa:2048 \
+-keyout /etc/ssl/private/localhost.key -out /etc/ssl/certs/localhost.crt \
+-subj "/C=FR/ST=IdF/L=PARIS/O=42/OU=STUDENT/CN=localhost"
+
+RUN chmod +x start.sh && \
+chmod +x autoindexation.sh
 
 EXPOSE 80 443
 
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["./start.sh"]
